@@ -25,3 +25,186 @@ a async delayer for arduino, 一个arduino下使用的非阻塞式异步延时�
 + 可以有如：Delayer.delay(300){}的用法吗？
 + 没有！！！异步编程和普通编程本来就不一样。
 
+### 使用方法
+#### 独立延时器使用方法
++ 以检测机械按键去抖为例
+```
+#include <Arduino.h>
+#include "delayer.h"
+
+Delayer k1Delayer=Delayer(20);  //第一个按键对应的延时器
+Delayer k2Delayer=Delayer(20);  //第二个按键对应的延时器
+void setup(){
+  Serial.begin(9600);
+
+  pinMode(13,INPUT);  //第一个按键在13引脚
+  pinMode(12,INPUT);  //第二个按键在12引脚
+
+  k1Delayer.setAllowStart(false);//没检测到按键前不进行延时计时
+  k2Delayer.setAllowStart(false);//没检测到按键前不进行延时计时
+
+}
+
+void loop(){
+
+  //检测到按键产生的电平信号，开启延时计时。
+  if(digitalRead(13)==HIGH && k1Delayer.getAllowStart()==false){
+    k1Delayer.setAllowStart(true);
+  }  
+
+  //如果延时时长到了，电平和最开始还是一样的，则确认按键已稳定按下
+  if(k1Delayer.isDelayed()){
+    if(digitalRead(13)==HIGH){
+      Serial.println("确认K1按下");
+      k1Delayer.setAllowStart(false); //完成一次延时计时后，重置延时器不再延时
+    }
+  }
+  
+  if(digitalRead(12)==HIGH && k2Delayer.getAllowStart()==false){
+    k2Delayer.setAllowStart(true);
+  }  
+  if(k2Delayer.isDelayed()){
+    if(digitalRead(12)==HIGH){
+      Serial.println("确认K2按下");
+      k2Delayer.setAllowStart(false);//完成一次延时计时后，重置延时器不再延时
+    }
+  }
+
+}
+
+```
+
+
+#### 延时器"串联"的典型使用场景和典型用法
++ 以blink为例使用例子一：
+
+```
+
+
+// the setup function runs once when you press reset or power the board
+#include <Arduino.h>
+#include "delayer.h"
+
+void onLed();
+void offLed();
+Delayer onDelayer=Delayer(1000);
+Delayer offDelayer=Delayer(1000);
+
+void setup() {
+  // initialize digital pin 13 as an output.
+  pinMode(13, OUTPUT);
+  onDelayer.setNextDelayer(&offDelayer);
+  offDelayer.setNextDelayer(&onDelayer);
+  
+  onDelayer.setAllowEnable();
+
+}
+
+
+// the loop function runs over and over again forever
+void loop() {
+
+  onDelayer.isDelayed(onLed);
+
+  offDelayer.isDelayed(offLed);
+
+}
+void onLed(){
+    digitalWrite(13, HIGH); 
+}
+void offLed(){
+  digitalWrite(13,LOW);
+}
+
+```
++ 以blink为例使用例子二：
+```
+
+#include <Arduino.h>
+#include "delayer.h"
+
+
+  Delayer onDelayer=Delayer(1000);
+  Delayer offDelayer=Delayer(1000);
+  
+void setup() {
+  // initialize digital pin 13 as an output.
+  pinMode(13, OUTPUT);
+  
+  onDelayer.setNextDelayer(&offDelayer);
+  offDelayer.setNextDelayer(&onDelayer);
+  onDelayer.setAllowEnable();
+  
+  Serial.begin(9600);
+}
+
+  
+void loop() {
+
+
+  if(onDelayer.isDelayed(500)){
+    digitalWrite(13,LOW);
+
+  }
+
+  if(offDelayer.isDelayed(300)){
+    digitalWrite(13,HIGH);
+
+  }
+}
+```
+#### 不使用延时器串联方式控制两个LED灯以不同的频率闪烁
+```
+
+#include <Arduino.h>
+#include "delayer.h"
+
+
+Delayer k1onDelayer=Delayer(2000);
+Delayer k1offDelayer=Delayer(1000);
+Delayer k2onDelayer=Delayer(1000);
+Delayer k2offDelayer=Delayer(1000);
+
+void setup(){
+
+pinMode(42,OUTPUT);
+pinMode(46,OUTPUT);
+
+k1offDelayer.setAllowStart(false);
+k2offDelayer.setAllowStart(false);
+
+}
+
+void loop(){
+  if(k1onDelayer.isStarted()==false && k1onDelayer.getAllowStart()==true){
+    digitalWrite(42,HIGH);
+  }
+  if(k1onDelayer.isDelayed()){
+    digitalWrite(42,LOW);
+    k1offDelayer.setAllowStart(true);
+    k1onDelayer.setAllowStart(false);
+  }
+
+  if(k1offDelayer.isDelayed()){
+    digitalWrite(42,HIGH);
+    k1onDelayer.setAllowStart(true);
+    k1offDelayer.setAllowStart(false);
+  }
+
+  if(k2onDelayer.isStarted()==false && k2onDelayer.getAllowStart()==true){
+    digitalWrite(46,HIGH);
+  }
+  if(k2onDelayer.isDelayed()){
+    digitalWrite(46,LOW);
+    k2offDelayer.setAllowStart(true);
+    k2onDelayer.setAllowStart(false);
+  }
+
+  if(k2offDelayer.isDelayed()){
+    digitalWrite(46,HIGH);
+    k2onDelayer.setAllowStart(true);
+    k2offDelayer.setAllowStart(false);
+  }
+}
+
+```
